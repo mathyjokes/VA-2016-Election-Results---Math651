@@ -12,3 +12,8 @@ Some of the questions we sought to answer were
 To answer these questions, we took information from Politico (for election results), from the American Community Survey (for voter information) and from manually created data.
 
 To model the success of Trump in a county, we used the following model: Percent.Trump ~ Percent Third + Median.Income + Median.Age + Percent.White + Unemployment.Rate + Graduate
+
+Some counties were clear outliers:
+![va_outliers](https://github.com/mathyjokes/VA-2016-Election-Results---Math651/blob/master/va_outliers.png)
+
+For other results check the PPT presentation!
