@@ -1,0 +1,408 @@
+---
+title: "Project"
+output: word_document
+---
+```{r}
+#Intro steps
+library(leaps)
+library(MPV)
+
+plot(project[2:9])
+
+
+project <- read.csv("C:\\Users\\Bridget\\Documents\\MATH651\\data\\OnlineData.csv")
+names(project)
+head(project)
+names(project)<-c("County", "Percent.Trump", "Median.Income", "Percent.Third", "Median.Age", "Percent.White", "Unemployment.Rate", "Bachelors", "Graduate", "Bachelors.Higher", "Trump.Won")
+
+tail(sort(project$Percent.Third))
+summary(project[,2:9])
+project[which(project$Percent.Third>9),]
+project[c(6, 13, 51, 53, 88, 98, 102, 104, 106, 114, 124), ]
+project[88,]
+names(project)
+col=rep("black", nrow(project))
+col[88]="red"
+plot(project$Percent.Trump, col=col)
+plot(project$Median.Income, col=col)
+plot(project$Percent.Third, col=col)
+plot(project$Median.Age, col=col)
+plot(project$Unemployment.Rate, col=col)
+plot(project$Bachelors, col=col)
+plot(project$Graduate, col=col)
+
+
+
+#run a Multiple Regression with all variables. 
+Test.lm<-lm(Percent.Trump~Percent.Third+Median.Income+Median.Age+Percent.White+Unemployment.Rate+Bachelors+Graduate+Bachelors.Higher, data=project)
+#The summary shows that Bachelors.Higher has NA values. This means that Bachelors.Higher is a linear combination of other variables. 
+summary(Test.lm)
+
+
+
+
+#Examine multicollinearity among the variables, notice that Bachelors.Higher is very highly correlated with Bachelors and Graduate
+cor(project[,-1])
+
+
+
+
+
+
+
+
+#run a new Regression without Bachelors.Higher
+NewTest.lm<-lm(Percent.Trump~Percent.Third+Median.Income+Median.Age+Percent.White+Unemployment.Rate+Bachelors + Graduate, data=project)
+#Note that this summary gives different values, but that the adjusted R2 is still over .9
+summary(NewTest.lm)
+#Check the residual assumptions- are the independent, constant variance, mean 0 and normal variance?  Yes!
+plot(NewTest.lm)
+
+
+
+
+
+
+
+
+#Now, using adjusted R2 and Mallow's Cp statistic from the leaps package, compare subsets of the models to see if there are any better to examine. We do not include the Bachelors.Higher variable because, as it is a linear combination of other variables, it will not provide any new information.
+#Comparing Regressions
+project.leaps<-leaps(y=project$Percent.Trump, x=project[,c(3:9)])
+project.leaps.cp<-leaps(y=project$Percent.Trump, x=project[,c(3:9)])
+project.leaps.r2<-leaps(y=project$Percent.Trump, x=project[,c(3:9)], method="adjr2")
+project.leapsfull<-cbind(project.leaps.cp$which, project.leaps.r2$adjr2, project.leaps.cp$Cp)
+colnames(project.leapsfull)<-c("Percent.Third", "Median.Income", "Median.Age", "Percent.White", "Unemployment.Rate", "Bachelors", "Graduate","adjR2", "Cp")
+
+
+
+
+#When comparing Adjusted R2 values, the higher values are best. Because adjusted R2 penalizes for inclusion of variables, it only increases with more variables if these are significant. When comparing Cp values, Cp should be near the number of parameters used. For example, if looking at a regression model with 4 explanatory variables, Cp should be near 4. 
+#The top 3 regression models for adjR2 and Cp are the same as follows, from the best down:
+#Percent.Trump ~ Percent.Third + Median.Income + Median.Age + Percent.White + Unemployment.Rate + Graduate
+#Percent.Trump ~ Percent.Third + Median.Income + Median.Age + Percent.White + Unemployment.Rate + Bachelors + Graduate
+#Percent.Trump ~ Percent.Third + Median.Income + Median.Age + Percent.White + Graduate
+#project.leapsfull
+#seeing what the top 6 adjR2 values are
+leaps.frame<-as.data.frame(project.leapsfull)
+tail(leaps.frame[order(leaps.frame$adjR2),])
+
+
+
+
+#Look at PRESS and AIC for the top 3 models found. For both of these, smaller values means better models. For both of these, as well, Percent.Trump ~ Percent.Third + Median.Income + Median.Age + Percent.White + Unemployment.Rate + Graduate is the best model.
+
+
+
+
+PRESS(lm(Percent.Trump ~ Percent.Third + Median.Income + Median.Age + Percent.White + Unemployment.Rate + Graduate, data=project))
+PRESS(lm(Percent.Trump ~ Percent.Third + Median.Income + Median.Age + Percent.White + Unemployment.Rate + Bachelors + Graduate, data=project))
+PRESS(lm(Percent.Trump ~ Percent.Third + Median.Income + Median.Age + Percent.White + Graduate, data=project))
+
+
+
+
+AIC(lm(Percent.Trump ~ Percent.Third + Median.Income + Median.Age + Percent.White + Unemployment.Rate + Graduate, data=project))
+AIC(lm(Percent.Trump ~ Percent.Third + Median.Income + Median.Age + Percent.White + Unemployment.Rate + Bachelors + Graduate, data=project))
+AIC(lm(Percent.Trump ~ Percent.Third + Median.Income + Median.Age + Percent.White + Graduate, data=project))
+
+
+
+
+#Now that we have the best model to use, we examine it
+NewTest2.lm<-lm(Percent.Trump ~ Percent.Third + Median.Income + Median.Age + Percent.White + Unemployment.Rate + Graduate, data=project)
+#Note that Unemployment.Rate is statistically significant only with a p-value of 0.1, not the standard 0.5. However, the statistics above (adjR2, Cp, PRESS, AIC) show that the model that does not include this model is not as good. 
+summary(NewTest2.lm)
+#Check the residual assumptions- are the independent, constant variance, mean 0 and normal variance?  Yes!
+#plot(NewTest2.lm)
+library(lmtest)
+#non-constant variance from the bptest
+bptest(Percent.Trump ~ Percent.Third + Median.Income + Median.Age + Percent.White + Unemployment.Rate + Graduate, data=project,studentize = FALSE)
+
+
+
+
+
+
+
+
+
+
+
+
+library(nortest)
+# Lilliefors test shows the residuals are normally distributed
+lillie.test(NewTest2.lm$resid)
+library(stats)
+shapiro.test(NewTest2.lm$resid)
+library(MASS)
+#boxcox(NewTest2.lm) 
+#boxcox shows that the best value for lambda is close to 1
+
+
+plot(project$Percent.Third,NewTest2.lm$resid)
+#the plot of the residuals against Percent Third seems to show a megaphone effect.Maybe do a Weighted Least Squared on Percent Third
+
+
+residuals.lm <- lm(abs(NewTest2.lm$resid) ~ project$Percent.Third)
+
+
+NewTest3.wls <- lm(Percent.Trump ~ Percent.Third + Median.Income + Median.Age + Percent.White + Unemployment.Rate + Graduate, data=project,weights=1/((residuals.lm$fit)^2))
+#summary(NewTest3.wls)
+#plot(NewTest3.wls)
+bptest(NewTest3.wls)
+
+
+residuals2.lm <- lm(abs(NewTest2.lm$resid) ~ project$Percent.Third)
+
+
+NewTest4.wls <- lm(Percent.Trump ~ Percent.Third + Median.Income + Median.Age + Percent.White + Unemployment.Rate + Graduate, data=project,weights=1/((residuals2.lm$fit)^2))
+summary(NewTest4.wls)
+plot(NewTest4.wls)
+bptest(NewTest4.wls)
+
+
+
+
+#Set up the new variables for the Box Cox transformation. 
+library(caret)
+library(e1071)
+dist_trump=predict(BoxCoxTrans(project$Percent.Trump), project$Percent.Trump)
+BoxCoxTrans(project$Percent.Trump)
+dist_third=predict(BoxCoxTrans(project$Percent.Third), project$Percent.Third)
+BoxCoxTrans(project$Percent.Third)
+dist_income=predict(BoxCoxTrans(project$Median.Income), project$Median.Income)
+BoxCoxTrans(project$Median.Income)
+dist_age=predict(BoxCoxTrans(project$Median.Age), project$Median.Age)
+BoxCoxTrans(project$Median.Age)
+dist_white=predict(BoxCoxTrans(project$Percent.White), project$Percent.White)
+BoxCoxTrans(project$Percent.White)
+dist_employ=predict(BoxCoxTrans(project$Unemployment.Rate), project$Unemployment.Rate)
+BoxCoxTrans(project$Unemployment.Rate)
+dist_grad=predict(BoxCoxTrans(project$Graduate), project$Graduate)
+BoxCoxTrans(project$Graduate)
+
+
+
+
+#Create new linear model with the transformed variables. 
+NewTest5.lm<-lm(dist_trump~dist_third+dist_income+dist_age+dist_white+dist_employ+dist_grad)
+
+
+
+
+
+
+#Note, however, that complicated models are rarely the best ones. We use the BoxCoxTrans above to look at the lambda values (the last value of the output) and see what is going on. Then I tried mixing and matching to find the model that used the least amount of transforming but still had constant variance and normality. 
+
+
+#Create new linear model with fewer transformed variables
+NewTest6.lm<-lm(I(project$Percent.Trump^2) ~ project$Percent.Third + project$Median.Income + project$Median.Age +I(project$Percent.White^2) +project$Unemployment.Rate+ I(project$Graduate^-.5))
+#Run the BP test, which results in a BP stat of 9.2492, a df of 6, and a p-value of 0.16.
+bptest(NewTest6.lm, studentize = F)
+#Run Lillie test, wich results in a D = 0.050511, p-value = 0.5563
+lillie.test(NewTest6.lm$residuals)
+trump<-project$Percent.Trump^2
+white<-project$Percent.White^2
+grad<-project$Graduate^-.5
+NewTest7.lm<-lm(trump ~ project$Percent.Third + project$Median.Income + project$Median.Age +white +project$Unemployment.Rate+ grad)
+plot(NewTest7.lm)
+summary(NewTest6.lm)
+
+
+
+
+
+
+#Now that we found a good model, we check if there are any undue influencers to this model. 
+influence.measures(NewTest6.lm)
+#influencers FOR NEW TEST 6 (numbers 13, 45, 51, 88, 98, 102, 104, 106, 113, 114, 117, 121, 124)- Appomattox County, Brunswick County, Lancaster County, Loudon County, Sussex County, Buena Vista City, Covington City, Emporia City, Falls Church City, Lynchburg City, Radford City, Interesting to note, fairly evenly split. 
+project[c(6, 13, 51, 53, 88, 98, 102, 104, 106, 114, 124), ]
+
+
+
+
+
+
+###########################################################################
+
+
+
+
+#Here, we compare the factor means of each variable, with the factors being 1= Trump won or 0=Clinton won. 
+library(car)
+
+
+#######  Third.Percent
+
+
+Third.lm<-lm(Percent.Third ~ factor(Trump.Won)-1, data=project)
+#meets the constant variance assumption!
+leveneTest(Percent.Third ~ factor(Trump.Won), data=project, center=median)
+#calculate the F value for alpha = 0.05
+qf(0.95,1,131)
+#Third.lm actually meets the constant variance assumption with the Brown-Forsythe test
+#mostly normal, good!
+plot(Third.lm)
+summary(Third.lm)
+anova(Third.lm)
+boxplot(Percent.Third ~ factor(Trump.Won), data=project, sub="Figure 1", main="Mean Factors for Third Party Voting")
+Third.aov<-aov(Percent.Third ~ factor(Trump.Won), data=project)
+#Different
+TukeyHSD(Third.aov)
+
+
+
+
+
+
+#######  Median.Income
+
+
+Income.lm <- lm(Median.Income ~ factor(Trump.Won)-1,data=project)
+#median income does not meet the constant variance assumption from Brown Forsythe test
+leveneTest(Median.Income ~ factor(Trump.Won), data=project, center=median)
+
+
+boxcox(Income.lm)
+Income2.lm <- lm(1/Median.Income ~ factor(Trump.Won)-1,data=project)
+#New model meets constant variance assumption!
+leveneTest(1/Median.Income ~ factor(Trump.Won), data=project, center=median)
+#mostly normal, good!
+plot(Income2.lm)
+summary(Income2.lm)
+anova(Income2.lm)
+boxplot(1/Median.Income ~ factor(Trump.Won),data=project, sub="Figure 2", main="Factor Means for Median Income")
+Income2.aov<-aov(1/Median.Income ~ factor(Trump.Won),data=project)
+#The same!
+TukeyHSD(Income2.aov)
+
+
+
+
+
+
+#######  Median.Age
+
+
+Age.lm <- lm(Median.Age~ factor(Trump.Won)-1,data=project)
+#median age does not meet the constant variance assumption from Brown Forsythe test
+leveneTest(Median.Age ~ factor(Trump.Won), data=project, center=median)
+
+
+boxcox(Age.lm)
+Age2.lm <- lm(Median.Age^2 ~ factor(Trump.Won)-1,data=project)
+#New model meets the constant variance assumption!
+leveneTest(Median.Age^2 ~ factor(Trump.Won), data=project, center=median)
+#mostly normal??
+plot(Age2.lm)
+summary(Age2.lm)
+anova(Age2.lm)
+boxplot(Median.Age^2 ~ factor(Trump.Won),data=project, sub="Figure 3", main="Factor Means for Median Age")
+Age2.aov<-aov(Median.Age^2 ~ factor(Trump.Won),data=project)
+#Different
+TukeyHSD(Age2.aov)
+
+
+
+
+
+
+#######  Percent.White
+
+
+Race.lm <- lm(Percent.White~ factor(Trump.Won)-1,data=project)
+#percent white does not meet the constant variance assumption from Brown Forsythe test
+leveneTest(Percent.White ~ factor(Trump.Won), data=project, center=median)
+
+
+boxcox(Race.lm)
+Race2.lm <- lm(Percent.White^2 ~ factor(Trump.Won)-1,data=project)
+#new model meets constant variance assumption!
+leveneTest(Percent.White^2 ~ factor(Trump.Won), data=project, center=median)
+#pretty bad normality.......
+plot(Race2.lm)
+summary(Race2.lm)
+anova(Race2.lm)
+boxplot(Percent.White^2 ~ factor(Trump.Won),data=project, sub="Figure 4", main="Factor Means for Percent White")
+Race2.aov<-aov(Percent.White^2 ~ factor(Trump.Won),data=project)
+#Different
+TukeyHSD(Race2.aov)
+
+
+
+
+
+
+#######  Unemployment.Rate
+
+
+Unemployment.lm <- lm(Unemployment.Rate ~ factor(Trump.Won)-1, data=project)
+#unemployment rate does not meet the constant variance assumption from Brown Forsythe test
+leveneTest(Unemployment.Rate ~ factor(Trump.Won), data=project, center=median)
+
+
+boxcox(Unemployment.lm)
+Unemployment2.lm <- lm(Unemployment.Rate^(0.4) ~ factor(Trump.Won)-1, data=project)
+#This still does not meet the constant variance assumption even after performing the Box-Cox Tramsformation. CAN'T CONDUCT TEST.
+leveneTest(Unemployment.Rate^0.4 ~ factor(Trump.Won), data=project, center=median)
+
+
+summary(Unemployment2.lm)
+anova(Unemployment2.lm)
+#plot(Unemployment2.lm)
+boxplot(Unemployment.Rate^(0.4) ~ factor(Trump.Won), data=project, sub="Figure 5", main="Factor Means for Percent Unemployment")
+Unemployment2.aov<-aov(Unemployment.Rate^(0.4) ~ factor(Trump.Won), data=project)
+#Different
+#TukeyHSD(Unemployment2.aov)
+
+
+#######  Bachelors
+
+
+Bachelors.lm <- lm(Bachelors ~ factor(Trump.Won)-1,data=project)
+#Bachelors degree does not meet the constant variance assumption from Brown Forsythe test
+leveneTest(Bachelors ~ factor(Trump.Won), data=project, center=median)
+library(MASS)
+boxcox(Bachelors.lm)
+Bachelors2.lm <- lm(Bachelors^(-1/4) ~ factor(Trump.Won)-1,data=project)
+#new model meets the constant variance requirements!
+leveneTest(Bachelors^(-1/4) ~ factor(Trump.Won), data=project, center=median)
+
+
+plot(Bachelors2.lm)
+
+
+boxplot(Bachelors^(-1/4) ~ factor(Trump.Won),data=project, sub="Figure 17", main="Factor Means for with Percent Bachelors Degree")
+Bachelors2.aov<-aov(Bachelors^(-1/4) ~ factor(Trump.Won),data=project)
+#Different
+TukeyHSD(Bachelors2.aov)
+
+
+
+
+#######  Graduate
+
+
+Graduate.lm <- lm(Graduate ~ factor(Trump.Won)-1,data=project)
+#Graduate degree does not meet the constant variance assumption from Brown Forsythe test
+leveneTest(Graduate ~ factor(Trump.Won), data=project, center=median)
+
+
+boxcox(Graduate.lm)
+Graduate2.lm <- lm(Graduate^(-.5) ~ factor(Trump.Won)-1,data=project)
+#new model satisfies constant variance assumptions
+leveneTest(Graduate^(-.5) ~ factor(Trump.Won), data=project, center=median)
+#check normality, looks fairly good
+plot(Graduate2.lm)
+summary(Graduate2.lm)
+anova(Graduate2.lm)
+boxplot(Graduate^(-.5) ~ factor(Trump.Won),data=project, sub="Figure 6", main="Factor Means for with Percent Graduate Degree")
+Graduate2.aov<-aov(Graduate^(-.5) ~ factor(Trump.Won),data=project)
+#Different
+TukeyHSD(Graduate2.aov)
+
+
+
+
+
+```
