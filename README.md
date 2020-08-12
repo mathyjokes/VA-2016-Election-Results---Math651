@@ -1,5 +1,5 @@
-# VA 2016 Election Results---Math651
- Analysis of 2016 Presidential Election Results in VA. A collaborative project.
+# What were the predictors of voter behavior in the 2016 Presedential Election in Virginia?
+A collaborative project for Linear Programming at Georgetown University
 
 Statistical analyses can identify insights into the voter behaviors from the 2016 Presidential election results in Virginia.
 Some of the questions we sought to answer were
